@@ -50,3 +50,9 @@ Internal Next.js app for อสม. to record `ประสงค์ตรวจ
 - `survey_intents` stores follow-up phone numbers separately from the imported Excel phone field.
 - Only rows with imported status `ยังไม่ได้ตรวจ` can be marked as `ประสงค์ตรวจ`.
 - Re-running the import updates citizen and volunteer source data without deleting saved intents.
+
+## Netlify
+
+- Add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` in the Netlify environment variable settings instead of committing real values to the repo.
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` is intentionally exposed to the browser by Next.js, so this repo includes [netlify.toml](/C:/Users/User/Downloads/project3/netlify.toml) to omit that key from Netlify secret scanning.
+- Keep `SUPABASE_SERVICE_ROLE_KEY` server-only and never prefix it with `NEXT_PUBLIC_`.
