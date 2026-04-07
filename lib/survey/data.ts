@@ -2,7 +2,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 
 import type { DashboardData } from "@/lib/survey/types";
 import { buildFullName } from "@/lib/survey/normalizers";
-import { createServerClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 export interface DashboardLoadResult {
   data: DashboardData | null;
@@ -19,7 +19,7 @@ function formatQueryError(error: PostgrestError) {
 
 export async function getDashboardData(): Promise<DashboardLoadResult> {
   try {
-    const supabase = createServerClient();
+    const supabase = createAdminClient();
     const [{ data: volunteers, error: volunteersError }, { data: citizens, error: citizensError }, { data: surveyIntents, error: surveyIntentsError }] =
       await Promise.all([
         supabase

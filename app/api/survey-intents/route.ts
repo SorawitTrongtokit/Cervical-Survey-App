@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { isValidPhone, normalizePhone } from "@/lib/survey/normalizers";
 import type { SurveyIntentResponse } from "@/lib/survey/types";
-import { createServerClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 const payloadSchema = z.object({
   citizenId: z.string().uuid(),
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = createServerClient();
+    const supabase = createAdminClient();
     const { data: citizen, error: citizenError } = await supabase
       .from("citizens")
       .select("id, screening_state, assigned_volunteer_id")

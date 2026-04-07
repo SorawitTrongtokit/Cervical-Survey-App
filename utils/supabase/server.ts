@@ -1,37 +1,33 @@
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient as createSupabaseServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 import type { Database } from "@/lib/database.types";
+import {
+  getSupabasePublishableKey,
+  getSupabaseUrl,
+} from "@/utils/supabase/config";
 
-function getSupabaseUrl() {
-  const value = process.env.NEXT_PUBLIC_SUPABASE_URL;
+export async function createServerClient() {
+  const cookieStore = await cookies();
 
-  if (!value) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL.");
-  }
-
-  return value;
-}
-
-function getServerKey() {
-  return (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY
-  );
-}
-
-export function createServerClient() {
-  const supabaseKey = getServerKey();
-
-  if (!supabaseKey) {
-    throw new Error(
-      "Missing Supabase key. Add SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY.",
-    );
-  }
-
-  return createClient<Database>(getSupabaseUrl(), supabaseKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
+  return createSupabaseServerClient<Database>(
+    getSupabaseUrl(),
+    getSupabasePublishableKey(),
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, options, value }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // Route handlers and the proxy are responsible for persisting cookies.
+          }
+        },
+      },
     },
-  });
+  );
 }

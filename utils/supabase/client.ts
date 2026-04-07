@@ -2,7 +2,13 @@ import { createBrowserClient } from "@supabase/ssr";
 
 import type { Database } from "@/lib/database.types";
 
+let browserClient: ReturnType<typeof createBrowserClient<Database>> | undefined;
+
 export function createBrowserSupabaseClient() {
+  if (browserClient) {
+    return browserClient;
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
 
@@ -12,5 +18,7 @@ export function createBrowserSupabaseClient() {
     );
   }
 
-  return createBrowserClient<Database>(supabaseUrl, publishableKey);
+  browserClient = createBrowserClient<Database>(supabaseUrl, publishableKey);
+
+  return browserClient;
 }
