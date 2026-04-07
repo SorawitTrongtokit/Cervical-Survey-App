@@ -7,6 +7,7 @@ import type {
   AdminCitizenUpdateResponse,
 } from "@/lib/admin/types";
 import { isValidPhone, normalizePhone } from "@/lib/survey/normalizers";
+import { parseSurveyIntentChoice, type SurveyIntentChoice } from "@/lib/survey/types";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 const payloadSchema = z.object({
@@ -79,6 +80,7 @@ export async function PATCH(request: Request, context: CitizenRouteContext) {
     }
 
     let intentPhone = "";
+    let intentChoice: SurveyIntentChoice | null = null;
     let intentUpdatedAt: string | null = null;
     let hasIntent = false;
 
@@ -107,7 +109,7 @@ export async function PATCH(request: Request, context: CitizenRouteContext) {
           ],
           { onConflict: "citizen_id" },
         )
-        .select("contact_phone, updated_at")
+        .select("contact_phone, intent_choice, updated_at")
         .single();
 
       if (intentError || !intent) {
@@ -118,6 +120,7 @@ export async function PATCH(request: Request, context: CitizenRouteContext) {
       }
 
       hasIntent = true;
+      intentChoice = parseSurveyIntentChoice(intent.intent_choice);
       intentPhone = intent.contact_phone;
       intentUpdatedAt = intent.updated_at;
     }
@@ -126,6 +129,7 @@ export async function PATCH(request: Request, context: CitizenRouteContext) {
       assignedVolunteerId: citizen.assigned_volunteer_id,
       hasIntent,
       id: citizen.id,
+      intentChoice,
       intentPhone,
       intentUpdatedAt,
       screeningState: citizen.screening_state,

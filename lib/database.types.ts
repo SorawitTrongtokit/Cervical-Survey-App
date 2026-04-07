@@ -85,6 +85,7 @@ export interface Database {
           contact_phone: string;
           created_at: string;
           id: string;
+          intent_choice: string | null;
           updated_at: string;
           volunteer_id: string;
         };
@@ -93,6 +94,7 @@ export interface Database {
           contact_phone: string;
           created_at?: string;
           id?: string;
+          intent_choice?: string | null;
           updated_at?: string;
           volunteer_id: string;
         };
@@ -101,6 +103,7 @@ export interface Database {
           contact_phone?: string;
           created_at?: string;
           id?: string;
+          intent_choice?: string | null;
           updated_at?: string;
           volunteer_id?: string;
         };

@@ -12,10 +12,13 @@ import type {
   AdminCitizenUpdateResponse,
   AdminDashboardData,
   AdminFilters,
+  AdminStatusFilter,
   AdminVolunteerRow,
   AdminVolunteerUpdateResponse,
 } from "@/lib/admin/types";
+import { ADMIN_STATUS_FILTER_LABELS } from "@/lib/admin/types";
 import { isValidPhone, normalizePhone } from "@/lib/survey/normalizers";
+import { getSurveyStatus, hasSurveyStatusKind } from "@/lib/survey/status";
 
 interface AdminConsoleProps {
   data: AdminDashboardData;
@@ -46,25 +49,17 @@ function SummaryCard({
 }
 
 function StatusBadge({ citizen }: { citizen: AdminCitizenRow }) {
-  if (citizen.screeningState === "completed") {
-    return (
-      <span className="inline-flex rounded-full border border-[var(--line)] bg-[rgba(94,112,120,0.12)] px-3 py-1 text-xs font-semibold text-[var(--muted)]">
-        ตรวจแล้ว
-      </span>
-    );
-  }
-
-  if (citizen.hasIntent) {
-    return (
-      <span className="inline-flex rounded-full border border-[var(--line)] bg-[var(--accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--accent-deep)]">
-        มีความประสงค์
-      </span>
-    );
-  }
+  const status = getSurveyStatus(citizen);
+  const className =
+    status.kind === "pending"
+      ? "border-rose-200 bg-rose-50 text-rose-700"
+      : status.kind === "completed"
+        ? "border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--accent-deep)]"
+        : "border-[var(--line)] bg-white text-[var(--muted)]";
 
   return (
-    <span className="inline-flex rounded-full border border-[var(--line)] bg-[rgba(217,119,6,0.12)] px-3 py-1 text-xs font-semibold text-[var(--warm)]">
-      รอสำรวจ
+    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${className}`}>
+      {status.label}
     </span>
   );
 }
@@ -94,8 +89,8 @@ function buildVolunteerRows(
       ...volunteer,
       assignedCitizenCount: assignedCitizens.length,
       intentCount: assignedCitizens.filter((citizen) => citizen.hasIntent).length,
-      pendingCitizenCount: assignedCitizens.filter(
-        (citizen) => citizen.screeningState === "pending",
+      pendingCitizenCount: assignedCitizens.filter((citizen) =>
+        hasSurveyStatusKind(citizen, "pending"),
       ).length,
     };
   });
@@ -108,9 +103,13 @@ function buildStats(
 ) {
   return {
     totalCitizens: citizens.length,
-    totalCompleted: citizens.filter((citizen) => citizen.screeningState === "completed")
+    totalCompleted: citizens.filter((citizen) => hasSurveyStatusKind(citizen, "completed"))
       .length,
-    totalPending: citizens.filter((citizen) => citizen.screeningState === "pending").length,
+    totalDeclined: citizens.filter((citizen) => hasSurveyStatusKind(citizen, "declined"))
+      .length,
+    totalLegacyIntent: citizens.filter((citizen) => hasSurveyStatusKind(citizen, "legacy"))
+      .length,
+    totalPending: citizens.filter((citizen) => hasSurveyStatusKind(citizen, "pending")).length,
     totalSavedIntent: citizens.filter((citizen) => citizen.hasIntent).length,
     totalVolunteers: volunteers.length,
     villages,
@@ -239,6 +238,7 @@ export function AdminConsole({ data }: AdminConsoleProps) {
                   assignedVolunteerId: payload.assignedVolunteerId,
                   assignedVolunteerName: assignedVolunteer?.fullName ?? null,
                   hasIntent: payload.hasIntent,
+                  intentChoice: payload.intentChoice,
                   intentPhone: payload.intentPhone,
                   intentUpdatedAt: payload.intentUpdatedAt,
                   screeningState: payload.screeningState,
@@ -444,27 +444,33 @@ export function AdminConsole({ data }: AdminConsoleProps) {
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SummaryCard
-              label="ประชาชนที่แสดง"
-              tone="neutral"
-              value={filtered.stats.totalCitizens.toLocaleString("th-TH")}
-            />
-            <SummaryCard
-              label="รอการตรวจ"
-              tone="warm"
-              value={filtered.stats.totalPending.toLocaleString("th-TH")}
-            />
-            <SummaryCard
-              label="มีความประสงค์"
-              tone="accent"
-              value={filtered.stats.totalSavedIntent.toLocaleString("th-TH")}
-            />
-            <SummaryCard
-              label="อสม.ที่แสดง"
-              tone="neutral"
-              value={filtered.stats.totalVolunteers.toLocaleString("th-TH")}
-            />
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <SummaryCard
+                label="ประชาชนที่แสดง"
+                tone="neutral"
+                value={filtered.stats.totalCitizens.toLocaleString("th-TH")}
+              />
+              <SummaryCard
+                label="รอการตรวจ"
+                tone="warm"
+                value={filtered.stats.totalPending.toLocaleString("th-TH")}
+              />
+              <SummaryCard
+                label="มีความประสงค์"
+                tone="accent"
+                value={filtered.stats.totalSavedIntent.toLocaleString("th-TH")}
+              />
+              <SummaryCard
+                label="อสม.ที่แสดง"
+                tone="neutral"
+                value={filtered.stats.totalVolunteers.toLocaleString("th-TH")}
+              />
+            </div>
+            <p className="text-sm text-[var(--muted)]">
+              มีการบันทึกเดิมที่ยังต้องตรวจสอบสถานะอีก{" "}
+              {filtered.stats.totalLegacyIntent.toLocaleString("th-TH")} ราย
+            </p>
           </div>
         </div>
       </section>
@@ -504,13 +510,19 @@ export function AdminConsole({ data }: AdminConsoleProps) {
           <select
             className="w-full rounded-2xl border border-[var(--line-strong)] bg-white px-4 py-3 outline-none transition focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent-soft)]"
             onChange={(event) =>
-              updateFilter("screeningState", event.target.value as AdminFilters["screeningState"])
+              updateFilter("screeningState", event.target.value as AdminStatusFilter)
             }
             value={filters.screeningState}
           >
-            <option value="all">ทุกสถานะ</option>
-            <option value="pending">pending</option>
-            <option value="completed">completed</option>
+            {(
+              Object.entries(ADMIN_STATUS_FILTER_LABELS) as Array<
+                [AdminStatusFilter, string]
+              >
+            ).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
           <select
             className="w-full rounded-2xl border border-[var(--line-strong)] bg-white px-4 py-3 outline-none transition focus:border-[var(--accent)] focus:ring-4 focus:ring-[var(--accent-soft)]"

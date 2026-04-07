@@ -1,6 +1,7 @@
 import type { PostgrestError } from "@supabase/supabase-js";
 
-import type { DashboardData } from "@/lib/survey/types";
+import { hasSurveyStatusKind } from "@/lib/survey/status";
+import { parseSurveyIntentChoice, type DashboardData } from "@/lib/survey/types";
 import { buildFullName } from "@/lib/survey/normalizers";
 import { createAdminClient } from "@/utils/supabase/admin";
 
@@ -35,7 +36,7 @@ export async function getDashboardData(): Promise<DashboardLoadResult> {
           .order("source_row", { ascending: true }),
         supabase
           .from("survey_intents")
-          .select("citizen_id, contact_phone")
+          .select("citizen_id, contact_phone, intent_choice, updated_at")
           .order("updated_at", { ascending: false }),
       ]);
 
@@ -52,35 +53,46 @@ export async function getDashboardData(): Promise<DashboardLoadResult> {
     }
 
     const intentByCitizenId = new Map(
-      surveyIntents.map((intent) => [intent.citizen_id, intent.contact_phone]),
+      surveyIntents.map((intent) => [
+        intent.citizen_id,
+        {
+          contactPhone: intent.contact_phone,
+          intentChoice: parseSurveyIntentChoice(intent.intent_choice),
+          updatedAt: intent.updated_at,
+        },
+      ]),
     );
     const villages = [...new Set(volunteers.map((volunteer) => volunteer.village_code))].sort(
       (left, right) => Number(left) - Number(right),
     );
+    const dashboardCitizens = citizens.map((citizen) => ({
+      ageYears: citizen.age_years,
+      assignedVolunteerId: citizen.assigned_volunteer_id,
+      fullName: buildFullName(citizen.prefix, citizen.first_name, citizen.last_name),
+      hasIntent: intentByCitizenId.has(citizen.id),
+      houseNo: citizen.house_no,
+      id: citizen.id,
+      intentChoice: intentByCitizenId.get(citizen.id)?.intentChoice ?? null,
+      intentPhone: intentByCitizenId.get(citizen.id)?.contactPhone ?? "",
+      intentUpdatedAt: intentByCitizenId.get(citizen.id)?.updatedAt ?? null,
+      screeningState: citizen.screening_state,
+      screeningStatusRaw: citizen.screening_status_raw,
+      sourcePhone: citizen.source_phone,
+      sourceRow: citizen.source_row,
+    }));
 
     return {
       data: {
-        citizens: citizens.map((citizen) => ({
-          ageYears: citizen.age_years,
-          assignedVolunteerId: citizen.assigned_volunteer_id,
-          fullName: buildFullName(citizen.prefix, citizen.first_name, citizen.last_name),
-          hasIntent: intentByCitizenId.has(citizen.id),
-          houseNo: citizen.house_no,
-          id: citizen.id,
-          intentPhone: intentByCitizenId.get(citizen.id) ?? "",
-          screeningState: citizen.screening_state,
-          screeningStatusRaw: citizen.screening_status_raw,
-          sourcePhone: citizen.source_phone,
-          sourceRow: citizen.source_row,
-        })),
+        citizens: dashboardCitizens,
         stats: {
           savedIntentCount: surveyIntents.length,
-          totalCitizens: citizens.length,
-          totalCompleted: citizens.filter(
-            (citizen) => citizen.screening_state === "completed",
+          totalCitizens: dashboardCitizens.length,
+          totalCompleted: dashboardCitizens.filter((citizen) =>
+            hasSurveyStatusKind(citizen, "completed"),
           ).length,
-          totalPending: citizens.filter((citizen) => citizen.screening_state === "pending")
-            .length,
+          totalPending: dashboardCitizens.filter((citizen) =>
+            hasSurveyStatusKind(citizen, "pending"),
+          ).length,
           villages,
         },
         volunteers: volunteers.map((volunteer) => ({

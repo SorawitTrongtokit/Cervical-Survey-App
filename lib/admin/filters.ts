@@ -5,6 +5,7 @@ import type {
   AdminVolunteerRow,
 } from "@/lib/admin/types";
 import { normalizePhone, normalizeWhitespace } from "@/lib/survey/normalizers";
+import { hasSurveyStatusKind } from "@/lib/survey/status";
 
 export const DEFAULT_ADMIN_FILTERS: AdminFilters = {
   intentStatus: "all",
@@ -61,7 +62,10 @@ export function parseAdminFilters(searchParams: SearchParamsLike): AdminFilters 
     intentStatus:
       intentStatus === "saved" || intentStatus === "unsaved" ? intentStatus : "all",
     screeningState:
-      screeningState === "pending" || screeningState === "completed"
+      screeningState === "pending" ||
+      screeningState === "completed" ||
+      screeningState === "declined" ||
+      screeningState === "legacy"
         ? screeningState
         : "all",
     search: searchParams.get("search")?.trim() ?? "",
@@ -82,7 +86,10 @@ export function filterAdminCitizens(rows: AdminCitizenRow[], filters: AdminFilte
       return false;
     }
 
-    if (filters.screeningState !== "all" && row.screeningState !== filters.screeningState) {
+    if (
+      filters.screeningState !== "all" &&
+      !hasSurveyStatusKind(row, filters.screeningState)
+    ) {
       return false;
     }
 
@@ -132,8 +139,10 @@ export function buildFilteredAdminDataset(
     citizens,
     stats: {
       totalCitizens: citizens.length,
-      totalCompleted: citizens.filter((row) => row.screeningState === "completed").length,
-      totalPending: citizens.filter((row) => row.screeningState === "pending").length,
+      totalCompleted: citizens.filter((row) => hasSurveyStatusKind(row, "completed")).length,
+      totalDeclined: citizens.filter((row) => hasSurveyStatusKind(row, "declined")).length,
+      totalLegacyIntent: citizens.filter((row) => hasSurveyStatusKind(row, "legacy")).length,
+      totalPending: citizens.filter((row) => hasSurveyStatusKind(row, "pending")).length,
       totalSavedIntent: citizens.filter((row) => row.hasIntent).length,
       totalVolunteers: volunteers.length,
       villages: data.stats.villages,

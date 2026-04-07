@@ -2,6 +2,8 @@ import type { PostgrestError } from "@supabase/supabase-js";
 
 import type { AdminDashboardData } from "@/lib/admin/types";
 import { buildFullName } from "@/lib/survey/normalizers";
+import { hasSurveyStatusKind } from "@/lib/survey/status";
+import { parseSurveyIntentChoice } from "@/lib/survey/types";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 export interface AdminDataLoadResult {
@@ -35,7 +37,7 @@ export async function getAdminDashboardData(): Promise<AdminDataLoadResult> {
           .order("source_row", { ascending: true }),
         supabase
           .from("survey_intents")
-          .select("citizen_id, contact_phone, updated_at, volunteer_id")
+          .select("citizen_id, contact_phone, intent_choice, updated_at, volunteer_id")
           .order("updated_at", { ascending: false }),
       ]);
 
@@ -68,6 +70,7 @@ export async function getAdminDashboardData(): Promise<AdminDataLoadResult> {
         intent.citizen_id,
         {
           contactPhone: intent.contact_phone,
+          intentChoice: parseSurveyIntentChoice(intent.intent_choice),
           updatedAt: intent.updated_at,
           volunteerId: intent.volunteer_id,
         },
@@ -91,6 +94,7 @@ export async function getAdminDashboardData(): Promise<AdminDataLoadResult> {
         hasIntent: Boolean(intent),
         houseNo: citizen.house_no,
         id: citizen.id,
+        intentChoice: intent?.intentChoice ?? null,
         intentPhone: intent?.contactPhone ?? "",
         intentUpdatedAt: intent?.updatedAt ?? null,
         screeningState: citizen.screening_state,
@@ -112,8 +116,8 @@ export async function getAdminDashboardData(): Promise<AdminDataLoadResult> {
         fullName: volunteer.full_name,
         id: volunteer.id,
         intentCount: assignedCitizens.filter((citizen) => citizen.hasIntent).length,
-        pendingCitizenCount: assignedCitizens.filter(
-          (citizen) => citizen.screeningState === "pending",
+        pendingCitizenCount: assignedCitizens.filter((citizen) =>
+          hasSurveyStatusKind(citizen, "pending"),
         ).length,
         phone: volunteer.phone,
         updatedAt: volunteer.updated_at,
@@ -126,11 +130,17 @@ export async function getAdminDashboardData(): Promise<AdminDataLoadResult> {
         citizens: adminCitizens,
         stats: {
           totalCitizens: adminCitizens.length,
-          totalCompleted: adminCitizens.filter(
-            (citizen) => citizen.screeningState === "completed",
+          totalCompleted: adminCitizens.filter((citizen) =>
+            hasSurveyStatusKind(citizen, "completed"),
           ).length,
-          totalPending: adminCitizens.filter(
-            (citizen) => citizen.screeningState === "pending",
+          totalDeclined: adminCitizens.filter((citizen) =>
+            hasSurveyStatusKind(citizen, "declined"),
+          ).length,
+          totalLegacyIntent: adminCitizens.filter((citizen) =>
+            hasSurveyStatusKind(citizen, "legacy"),
+          ).length,
+          totalPending: adminCitizens.filter((citizen) =>
+            hasSurveyStatusKind(citizen, "pending"),
           ).length,
           totalSavedIntent: adminCitizens.filter((citizen) => citizen.hasIntent).length,
           totalVolunteers: adminVolunteers.length,

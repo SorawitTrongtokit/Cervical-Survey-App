@@ -56,6 +56,35 @@ function readSheetRows(sheet: XLSX.WorkSheet) {
   });
 }
 
+function formatExcelDateDisplay(value: number) {
+  const parsed = XLSX.SSF.parse_date_code(value);
+
+  if (!parsed) {
+    return String(value);
+  }
+
+  return `${parsed.d}/${parsed.m}/${parsed.y}`;
+}
+
+function readScreeningStatusRaw(sheet: XLSX.WorkSheet, sourceRow: number) {
+  const cellAddress = XLSX.utils.encode_cell({ c: 10, r: sourceRow - 1 });
+  const cell = sheet[cellAddress];
+
+  if (!cell) {
+    return "";
+  }
+
+  if (cell.t === "n" && typeof cell.v === "number") {
+    return formatExcelDateDisplay(cell.v);
+  }
+
+  if (typeof cell.w === "string" && cell.w.trim().length > 0) {
+    return cell.w.trim();
+  }
+
+  return String(cell.v ?? "").trim();
+}
+
 function readVolunteerRows(workbook: XLSX.WorkBook) {
   const sheet = workbook.Sheets["อสม."];
 
@@ -94,9 +123,11 @@ function readCitizenRows(
   const citizens = dataRows
     .filter((row) => row.some((value) => String(value ?? "").trim().length > 0))
     .map<CitizenImportRow>((row, index) => {
+      const sourceRow = index + 3;
       const villageCode = normalizeVillageCode(row[1]);
       const volunteerCitizenId = normalizeThaiCitizenId(row[12]);
       const volunteerName = buildFullName(String(row[11] ?? ""));
+      const screeningStatusRaw = readScreeningStatusRaw(sheet, sourceRow);
       const byCardId = volunteerCitizenId
         ? volunteerIdByCard.get(volunteerCitizenId) ?? null
         : null;
@@ -121,14 +152,14 @@ function readCitizenRows(
         last_name: String(row[5] ?? "").trim(),
         national_id: normalizeThaiCitizenId(row[9]),
         prefix: String(row[3] ?? "").trim() || null,
-        screening_state: deriveScreeningState(row[10]),
-        screening_status_raw: String(row[10] ?? "").trim(),
+        screening_state: deriveScreeningState(screeningStatusRaw),
+        screening_status_raw: screeningStatusRaw,
         sequence_no:
           typeof row[0] === "number"
             ? row[0]
             : Number.parseInt(String(row[0] ?? "").trim(), 10) || null,
         source_phone: normalizePhone(row[13]) || null,
-        source_row: index + 3,
+        source_row: sourceRow,
         village_code: villageCode,
       };
     });

@@ -28,6 +28,7 @@ Internal Next.js app for อสม. to record `ประสงค์ตรวจ
 
    - [20260407_internal_cervical_screening.sql](/C:/Users/User/Downloads/project3/supabase/migrations/20260407_internal_cervical_screening.sql)
    - [20260407_internal_cervical_screening_auth_hardening.sql](/C:/Users/User/Downloads/project3/supabase/migrations/20260407_internal_cervical_screening_auth_hardening.sql)
+   - [20260407_internal_cervical_screening_intent_choice.sql](/C:/Users/User/Downloads/project3/supabase/migrations/20260407_internal_cervical_screening_intent_choice.sql)
 
 4. In Supabase Auth, create the internal admin users with email and password, and make sure their email addresses are included in `INTERNAL_ALLOWED_EMAILS`.
 

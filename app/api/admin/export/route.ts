@@ -3,7 +3,10 @@ import * as XLSX from "xlsx";
 
 import { getAdminDashboardData } from "@/lib/admin/data";
 import { buildFilteredAdminDataset, parseAdminFilters } from "@/lib/admin/filters";
+import { ADMIN_STATUS_FILTER_LABELS, type AdminStatusFilter } from "@/lib/admin/types";
 import { requireApiAuthorizedSession } from "@/lib/auth/session";
+import { getSurveyStatus, hasSurveyStatusKind } from "@/lib/survey/status";
+import { SURVEY_INTENT_CHOICE_LABELS } from "@/lib/survey/types";
 
 export const runtime = "nodejs";
 
@@ -52,8 +55,10 @@ export async function GET(request: Request) {
     return [
       villageCode,
       rows.length,
-      rows.filter((citizen) => citizen.screeningState === "pending").length,
-      rows.filter((citizen) => citizen.screeningState === "completed").length,
+      rows.filter((citizen) => hasSurveyStatusKind(citizen, "pending")).length,
+      rows.filter((citizen) => hasSurveyStatusKind(citizen, "completed")).length,
+      rows.filter((citizen) => hasSurveyStatusKind(citizen, "declined")).length,
+      rows.filter((citizen) => hasSurveyStatusKind(citizen, "legacy")).length,
       rows.filter((citizen) => citizen.hasIntent).length,
     ];
   });
@@ -64,16 +69,26 @@ export async function GET(request: Request) {
     ["คำค้นหา", filters.search || "ทั้งหมด"],
     ["หมู่", filters.village || "ทั้งหมด"],
     ["อสม.", volunteerName],
-    ["สถานะการตรวจ", filters.screeningState === "all" ? "ทั้งหมด" : filters.screeningState],
+    ["สถานะการตรวจ", ADMIN_STATUS_FILTER_LABELS[filters.screeningState as AdminStatusFilter]],
     ["สถานะความประสงค์", filters.intentStatus],
     [],
     ["ประชาชนที่แสดง", filtered.stats.totalCitizens],
     ["รอการตรวจ", filtered.stats.totalPending],
     ["ตรวจแล้ว", filtered.stats.totalCompleted],
+    ["ไม่ต้องการตรวจ", filtered.stats.totalDeclined],
+    ["มีการบันทึกเดิม", filtered.stats.totalLegacyIntent],
     ["มีความประสงค์", filtered.stats.totalSavedIntent],
     ["อสม.ที่แสดง", filtered.stats.totalVolunteers],
     [],
-    ["หมู่", "ประชาชนทั้งหมด", "รอการตรวจ", "ตรวจแล้ว", "มีความประสงค์"],
+    [
+      "หมู่",
+      "ประชาชนทั้งหมด",
+      "รอการตรวจ",
+      "ตรวจแล้ว",
+      "ไม่ต้องการตรวจ",
+      "มีการบันทึกเดิม",
+      "มีความประสงค์",
+    ],
     ...villageSummary,
   ]);
 
@@ -83,10 +98,13 @@ export async function GET(request: Request) {
     { wch: 18 },
     { wch: 18 },
     { wch: 18 },
+    { wch: 18 },
+    { wch: 18 },
   ];
 
   const citizensSheet = XLSX.utils.json_to_sheet(
     filtered.citizens.map((citizen) => ({
+      "สถานะรวม": getSurveyStatus(citizen).label,
       "หมู่": citizen.villageCode,
       "อสม.": citizen.assignedVolunteerName ?? "-",
       "ชื่อ-สกุล": citizen.fullName,
@@ -94,6 +112,12 @@ export async function GET(request: Request) {
       อายุ: citizen.ageYears ?? "-",
       "สถานะจากต้นทาง": citizen.screeningStatusRaw,
       "สถานะในระบบ": citizen.screeningState,
+      "ความประสงค์ที่เลือก":
+        citizen.intentChoice
+          ? SURVEY_INTENT_CHOICE_LABELS[citizen.intentChoice]
+          : citizen.hasIntent
+            ? "มีการบันทึกเดิม"
+            : "-",
       "เบอร์จากต้นทาง": citizen.sourcePhone ?? "-",
       "เบอร์ที่บันทึกติดตาม": citizen.intentPhone || "-",
       "มีความประสงค์": yesNo(citizen.hasIntent),
@@ -102,6 +126,7 @@ export async function GET(request: Request) {
   );
 
   citizensSheet["!cols"] = [
+    { wch: 24 },
     { wch: 8 },
     { wch: 26 },
     { wch: 28 },
@@ -109,6 +134,7 @@ export async function GET(request: Request) {
     { wch: 8 },
     { wch: 26 },
     { wch: 14 },
+    { wch: 28 },
     { wch: 16 },
     { wch: 18 },
     { wch: 14 },

@@ -1,10 +1,20 @@
-import type { ScreeningState } from "@/lib/survey/types";
+import type { SurveyStatusKind } from "@/lib/survey/status";
+import type { ScreeningState, SurveyIntentChoice } from "@/lib/survey/types";
 
 export type AdminIntentStatus = "all" | "saved" | "unsaved";
+export type AdminStatusFilter = SurveyStatusKind | "all";
+
+export const ADMIN_STATUS_FILTER_LABELS: Record<AdminStatusFilter, string> = {
+  all: "ทุกสถานะ",
+  pending: "ยังไม่ได้ตรวจ",
+  completed: "ตรวจแล้ว",
+  declined: "ไม่ต้องการตรวจ",
+  legacy: "มีการบันทึกเดิม",
+};
 
 export interface AdminFilters {
   intentStatus: AdminIntentStatus;
-  screeningState: ScreeningState | "all";
+  screeningState: AdminStatusFilter;
   search: string;
   village: string;
   volunteerId: string;
@@ -18,6 +28,7 @@ export interface AdminCitizenRow {
   hasIntent: boolean;
   houseNo: string | null;
   id: string;
+  intentChoice: SurveyIntentChoice | null;
   intentPhone: string;
   intentUpdatedAt: string | null;
   screeningState: ScreeningState;
@@ -42,6 +53,8 @@ export interface AdminVolunteerRow {
 export interface AdminStats {
   totalCitizens: number;
   totalCompleted: number;
+  totalDeclined: number;
+  totalLegacyIntent: number;
   totalPending: number;
   totalSavedIntent: number;
   totalVolunteers: number;
@@ -64,6 +77,7 @@ export interface AdminCitizenUpdateResponse {
   assignedVolunteerId: string | null;
   hasIntent: boolean;
   id: string;
+  intentChoice: SurveyIntentChoice | null;
   intentPhone: string;
   intentUpdatedAt: string | null;
   screeningState: ScreeningState;

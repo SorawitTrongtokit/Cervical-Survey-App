@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { isValidPhone, normalizePhone } from "@/lib/survey/normalizers";
-import type { SurveyIntentResponse } from "@/lib/survey/types";
+import {
+  parseSurveyIntentChoice,
+  SURVEY_INTENT_CHOICES,
+  type SurveyIntentResponse,
+} from "@/lib/survey/types";
 import { createAdminClient } from "@/utils/supabase/admin";
 
 const payloadSchema = z.object({
   citizenId: z.string().uuid(),
   contactPhone: z.string().trim().min(1),
+  intentChoice: z.enum(SURVEY_INTENT_CHOICES),
   volunteerId: z.string().uuid(),
 });
 
@@ -63,12 +68,13 @@ export async function POST(request: Request) {
           {
             citizen_id: payload.data.citizenId,
             contact_phone: normalizedPhone,
+            intent_choice: payload.data.intentChoice,
             volunteer_id: payload.data.volunteerId,
           },
         ],
         { onConflict: "citizen_id" },
       )
-      .select("citizen_id, contact_phone, updated_at, volunteer_id")
+      .select("citizen_id, contact_phone, intent_choice, updated_at, volunteer_id")
       .single();
 
     if (upsertError || !surveyIntent) {
@@ -82,6 +88,8 @@ export async function POST(request: Request) {
       citizenId: surveyIntent.citizen_id,
       contactPhone: surveyIntent.contact_phone,
       hasIntent: true,
+      intentChoice:
+        parseSurveyIntentChoice(surveyIntent.intent_choice) ?? payload.data.intentChoice,
       updatedAt: surveyIntent.updated_at,
       volunteerId: surveyIntent.volunteer_id,
     };
